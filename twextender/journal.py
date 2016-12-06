@@ -1,3 +1,15 @@
+"""
+A collection of classes and functions for managing a journal of twitter requests for
+certain users.
+
+This is to help synchronise between concurrent processes spidering the same group of
+users, and also to help ensure that the application can easily restart and continue
+where it left off should something go wrong.
+
+The "journal" in this case is a directory of per-user journals: this is just to
+ensure we don't spend too long reading a journal, and block other processes.
+"""
+
 from enum import Enum
 from fcntl import flock, LOCK_EX, LOCK_NB, LOCK_UN
 import time
@@ -8,7 +20,7 @@ from random import random
 from pathlib import Path
 
 
-JOURNAL_ACCESS_TIMEOUT_SECS=30
+JOURNAL_ACCESS_TIMEOUT_SECS=3 * 60 # How long will it take to read and parse an entire journal
 TRANSACTION_EXPIRY_TIMEOUT_SECS=5 * 60
 
 class JournalResultType (Enum):
@@ -192,20 +204,22 @@ class Journal:
     <job-date><user>FAILURE<previous-max-id>
     """
 
-    def __init__(self, lock_file):
+    def __init__(self, journal_dir):
         """
         Creates a new journal object
-        :param lockFile: the file which will be used to record progress
+        :param journal_dir: the directory where the journals should go.
         """
-        self._lock_file = lock_file
-        Path(lock_file).touch(exist_ok=True)
+        self._journal_dir = journal_dir
+        path = Path(journal_dir)
+        if not path.exists():
+            path.mkdir(parents=False)
 
     def abandon(self, user_name, old_max_id):
         """
         Record that we had to abandon the last twitter read attempt
         """
         entry = JournalEntry.abandoned_now(user_name, old_max_id)
-        with open(self._lock_file, "a") as f:
+        with open(self._journal_for_user(user_name), "a") as f:
             try_lock(f, JOURNAL_ACCESS_TIMEOUT_SECS)
             try:
                 f.write(str(entry) + '\n')
@@ -218,7 +232,7 @@ class Journal:
         earlier than old_max_id, and having read a batch whose minimum is new_max_id
         """
         entry = JournalEntry.finished_now(user_name, old_max_id, new_max_id, new_max_date)
-        with open(self._lock_file, "a") as f:
+        with open(self._journal_for_user(user_name), "a") as f:
             try_lock(f, JOURNAL_ACCESS_TIMEOUT_SECS)
             try:
                 f.write(str(entry) + '\n')
@@ -239,8 +253,7 @@ class Journal:
         :return: False if a record for this user already exists in the file,
         True otherwise
         """
-
-        with open(self._lock_file, "r+") as f:
+        with open(self._journal_for_user(user_name), "r+") as f:
             try:
                 try_lock(f, JOURNAL_ACCESS_TIMEOUT_SECS)
 
@@ -263,13 +276,15 @@ class Journal:
 
                         entry = JournalEntry.from_str(line)
 
-                        if entry.is_for_user(user_name):
-                            if len(user_entries) == 0:
-                                user_entries.append(entry)
-                            else:
-                                if entry.is_completion_of(user_entries[-1]):
-                                    user_entries.pop()
-                                user_entries.append(entry)
+                        if not entry.is_for_user(user_name):
+                            raise ValueError ("Invalid journal file, wrong user found")
+
+                        if len(user_entries) == 0:
+                            user_entries.append(entry)
+                        else:
+                            if entry.is_completion_of(user_entries[-1]):
+                                user_entries.pop()
+                            user_entries.append(entry)
 
                     # Go back to last successfully completed journal entry
                     # Immediately write a record to the journal once we've found it
@@ -290,7 +305,15 @@ class Journal:
             finally:
                 unlock(f)
 
-
+    def _journal_for_user (self, user_name):
+        """
+        Return the journal file for the given user. Ensure it exists.
+        :param user_name: the "screen name" of a twitter user.
+        :return: a path (as a string) to a file.
+        """
+        journal_file = self._journal_dir + "/" + user_name.lower() + ".journal"
+        Path(journal_file).touch(exist_ok=True)
+        return journal_file
 
 def try_lock(fd, timeout_secs):
     """
@@ -318,8 +341,10 @@ def unlock(fd):
 
 
 if __name__ == "__main__":
-    JOURNAL_FILE = "/tmp/journalfile.2"
-    Path(JOURNAL_FILE).unlink() # Get rid of the old journal before testing.
+    JOURNAL_FILE = "/tmp/journalfile"
+    journal_path = Path(JOURNAL_FILE)
+    if journal_path.exists():
+        journal_path.unlink() # Get rid of the old journal before testing.
 
     journal_1 = Journal(JOURNAL_FILE)
     journal_2 = Journal(JOURNAL_FILE)
@@ -340,6 +365,8 @@ if __name__ == "__main__":
     journal_1.abandon ("eve", resps[5].max_id)
     resps.append (journal_2.try_start("Alice"))
     journal_2.finish("Alice", old_max_id=resps[-1].max_id, new_max_id=sample_ids.pop(), new_max_date=datetime.utcnow())
+    resps.append (journal_2.try_start("bob"))
+    journal_2.finish("Bob", old_max_id=resps[-1].max_id, new_max_id=sample_ids.pop(), new_max_date=datetime.utcnow())
 
     for r in resps:
         print (str(r))
