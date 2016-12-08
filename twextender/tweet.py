@@ -6,6 +6,11 @@ from dateutil import parser as dateparser
 import os
 from pathlib import Path
 
+
+MinAsSecs  = 60
+HourAsSecs = 60 * MinAsSecs
+QuarterHourAsSecs = HourAsSecs / 4
+
 class UrlCard:
     """
     Tweets that reference URLs, are formatted so that in some cases these URLs are
@@ -146,10 +151,14 @@ class TweetEnvelope:
     def __str__(self):
         # Figure out the timezone string
         diff = self.utc_date - self.local_date
-        hours =
+        rounded_diff = int(diff.total_seconds() / QuarterHourAsSecs) * QuarterHourAsSecs
+        hours = int (rounded_diff / HourAsSecs)
+        mins  = int ((rounded_diff % HourAsSecs) / MinAsSecs)
+
+        tz_str = "%02d:%02d" % (hours, mins)
 
         # Then write it out.
-        fields = [ self.local_date.isoformat(), self.utc_date.isoformat(), ""] + self.tweet.to_str_fields()
+        fields = [ self.local_date.isoformat(), self.utc_date.isoformat(), tz_str] + self.tweet.to_str_fields()
         return "\t".join(fields)
 
 
