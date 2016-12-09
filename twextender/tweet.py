@@ -206,10 +206,11 @@ def tweet_files(dir):
 
     return result
 
-def min_ids (catuserfiles):
+def min_ids_and_dates (catuserfiles):
     """
     Given a map of category -> user -> user-files (As returned by <code>tweet_Files</code>)
-    return a map of category -> user -> tweet_id, with the oldest tweet-id for each user.
+    return a map of category -> user -> (tweet_date, tweet_id), with the oldest tweet-id for
+    each user.
     """
     result = dict()
     for caty, usermap in catuserfiles.items():
@@ -218,8 +219,7 @@ def min_ids (catuserfiles):
         for user, userfiles in usermap.items():
             with open (userfiles.pop(), "r") as f:
                 envelope = TweetEnvelope.from_str(f.readline())
-                print(str(envelope))
-                catmap[user] = envelope.tweet.tweet_id
+                catmap[user] = (envelope.tweet.tweet_id, envelope.utc_date)
 
     return result
 
@@ -240,7 +240,7 @@ def screen_name_from_tweets_file (filename):
 
 if __name__ == "__main__":
     lst = tweet_files("/Users/bryanfeeney/Desktop/SpiderUpTest/")
-    mp  = min_ids(lst)
+    mp  = min_ids_and_dates(lst)
 
     print(str(mp))
 

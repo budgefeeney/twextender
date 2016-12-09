@@ -141,7 +141,6 @@ class JournalEntry:
     @classmethod
     def from_str(cls, line):
         parts = line.strip().split('\t')
-        print ("Parsing " + ":".join(["'" + p + "'" for p in parts]))
         entry_date = dateparser.parse(parts[0])
         user_name = parts[1]
         entry_type = JournalEntryType[parts[2]]
@@ -163,7 +162,6 @@ class JournalEntry:
             new_max_date=last_access_date
         )
 
-        print ("   --> " + str(result))
         return result
 
     def __str__(self):
