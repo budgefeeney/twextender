@@ -70,7 +70,7 @@ if __name__ == "__main__":
     if options.output_journal is not None:
 
 
-        lst = tweet.tweet_files("/Users/bryanfeeney/Desktop/SpiderUpTest/")
+        lst = tweet.tweet_files(options.tweets_dir)
         ids_and_dates = tweet.min_ids_and_dates(lst)
 
         # The same user may have appeared many times due to appearancs in different categories
