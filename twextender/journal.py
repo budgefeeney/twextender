@@ -18,7 +18,9 @@ from datetime import datetime
 import dateutil.parser as dateparser
 from random import random
 from pathlib import Path
+import os
 
+JOURNAL_FILE_EXT = ".journal"
 
 JOURNAL_ACCESS_TIMEOUT_SECS=3 * 60 # How long will it take to read and parse an entire journal
 TRANSACTION_EXPIRY_TIMEOUT_SECS=5 * 60
@@ -303,15 +305,45 @@ class Journal:
             finally:
                 unlock(f)
 
+
+    def journalled_users(self):
+        """
+        Return a list of users that are journalled
+        """
+        journal_files = os.listdir(self._journal_dir)
+        maybe_users = [self._user_for_journal(f) for f in journal_files]
+
+        return [u for u in maybe_users if u is not None]
+
+
     def _journal_for_user (self, user_name):
         """
         Return the journal file for the given user. Ensure it exists.
         :param user_name: the "screen name" of a twitter user.
         :return: a path (as a string) to a file.
         """
-        journal_file = self._journal_dir + "/" + user_name.lower() + ".journal"
+        journal_file = self._journal_dir + "/" + user_name.lower() + JOURNAL_FILE_EXT
         Path(journal_file).touch(exist_ok=True)
         return journal_file
+
+    def _user_for_journal(self, user_journal_path):
+        """
+        Return the screen name associated with a given journal file. If the file in
+        question does not match the expected journal format, return None instead.
+        """
+        path = Path(user_journal_path)
+        if not path.is_file():
+            return None
+        name = path.name
+
+        if name.startswith("."):
+            return None
+        if not name.endswith(JOURNAL_FILE_EXT):
+            return None
+
+        return name[0:-len(JournalEntryType)]
+
+
 
 def try_lock(fd, timeout_secs):
     """
