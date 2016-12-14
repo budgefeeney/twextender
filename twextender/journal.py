@@ -311,7 +311,7 @@ class Journal:
         Return a list of users that are journalled
         """
         journal_files = os.listdir(self._journal_dir)
-        maybe_users = [self._user_for_journal(f) for f in journal_files]
+        maybe_users = [self._user_for_journal(self._journal_dir + os.sep + f) for f in journal_files]
 
         return [u for u in maybe_users if u is not None]
 
@@ -341,7 +341,7 @@ class Journal:
         if not name.endswith(JOURNAL_FILE_EXT):
             return None
 
-        return name[0:-len(JournalEntryType)]
+        return name[0:-len(JOURNAL_FILE_EXT)]
 
 
 
