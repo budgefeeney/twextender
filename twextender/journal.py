@@ -71,7 +71,7 @@ class JournalResponse:
         elif self.result_type is JournalResultType.BrokenJournal:
             raise ValueError ("Cannot access last_Access for user, journal is inaccessible")
 
-        return self.last_access
+        return self._last_access
 
     def __str__(self):
         return self.result_type.name + ': [' + self.user + '] ' + str(self._max_id) + '@' + str(self._last_access)
