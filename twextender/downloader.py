@@ -6,7 +6,10 @@ import time
 import tweepy
 import json
 from datetime import datetime, timedelta
+import re
 from . import tweet
+
+LastTwitterLink = re.compile("\\s*https?://t\\.co/[A-Za-z0-9]{8,12}\\s*$", re.IGNORECASE)
 
 # Consumer keys and access tokens, used for OAuth. This is a dictionary
 # with the string keys "consumer", "consumer_secret", "access_token" and
@@ -46,7 +49,7 @@ def tweets_for_user(screen_name, max_id, min_date):
     indicating if more tweets are available to download (true) or not (false)
     """
     result = []
-    for status in limit_handled(tweepy.Cursor(twitter.user_timeline, screen_name=screen_name, max_id=max_id).items()):
+    for status in limit_handled(tweepy.Cursor(twitter.user_timeline, screen_name=screen_name, exclude_replies=True, tweet_mode="extended", max_id=max_id).items()):
         result.append(status_to_tweet(status))
         if status.created_at < min_date:
             return result
@@ -59,17 +62,61 @@ def status_to_tweet(status):
     """
     offset_seconds = 0 if status.user.utc_offset is None else status.user.utc_offset
     local_date = status.created_at + timedelta(seconds=offset_seconds)
-    return tweet.TweetEnvelope(
-        local_date=local_date,
-        utc_date=status.created_at,
-        tweet=status.TweetBody(
-            tweet_id=status.id,
-            author=status.author.screen_name,
-            content=status.text,
+
+    if hasattr (status, 'retweeted_status'):
+        rstatus = status.retweeted_status
+        if hasattr(rstatus, 'quoted_status'):
+            qstatus = rstatus.quoted_status
+            qtweet  = tweet.TweetBody (
+                tweet_id=qstatus['id'],
+                author=qstatus['user']['screen_name'],
+                content=qstatus['full_text'],
+                embedded_tweet=None,
+                embedded_url=None
+            )
+            retweet_text = strip_last_twitter_link(rstatus.full_text)
+        else:
+            qtweet = None
+            retweet_text = rstatus.full_text
+
+        retweet = tweet.TweetBody(
+            tweet_id=rstatus.id,
+            author=rstatus.user.screen_name,
+            content=retweet_text,
+            embedded_tweet=qtweet,
+            embedded_url=None
+        )
+        tweet_text = ""
+    elif hasattr(status, 'quoted_status'):
+        qstatus = status.quoted_status
+        retweet = tweet.TweetBody(
+            tweet_id=qstatus['id'],
+            author=qstatus['user']['screen_name'],
+            content=qstatus['full_text'],
             embedded_tweet=None,
             embedded_url=None
         )
+        tweet_text = strip_last_twitter_link(status.full_text)
+    else:
+        retweet = None
+        tweet_text = status.full_text
+
+
+    return tweet.TweetEnvelope(
+        local_date=local_date,
+        utc_date=status.created_at,
+        tweet=tweet.TweetBody(
+            tweet_id=status.id,
+            author=status.user.screen_name,
+            content=tweet_text,
+            embedded_tweet=retweet,
+            embedded_url=None
+        )
     )
+
+def strip_last_twitter_link(text):
+    return re.sub(LastTwitterLink, "", text)
+
 
 def print_my_followers_screen_names():
     for follower in limit_handled(tweepy.Cursor(twitter.followers).items()):
