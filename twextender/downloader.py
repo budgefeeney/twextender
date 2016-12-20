@@ -55,7 +55,7 @@ def tweets_for_user(screen_name, max_id, min_date):
         if status.created_at < min_date:
             return result
 
-    if result[0].id == max_id:
+    if len(result) > 0 and result[0].tweet.tweet_id == max_id:
         del result[0]
     return result
 
