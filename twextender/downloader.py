@@ -84,6 +84,8 @@ def status_to_tweet(status):
             qtweet = None
             retweet_text = rstatus.full_text
 
+        retweet_text =  re.sub("\\s+", " ", retweet_text)
+
         retweet = tweet.TweetBody(
             tweet_id=rstatus.id,
             author=rstatus.user.screen_name,
@@ -97,7 +99,7 @@ def status_to_tweet(status):
         retweet = tweet.TweetBody(
             tweet_id=qstatus['id'],
             author=qstatus['user']['screen_name'],
-            content=qstatus['full_text'],
+            content= re.sub("\\s+", " ", qstatus['full_text']),
             embedded_tweet=None,
             embedded_url=None
         )
@@ -107,7 +109,7 @@ def status_to_tweet(status):
         tweet_text = status.full_text
 
     # Get rid of raw-newlines in text
-    tweet_text = tweet_text.translate(str.maketrans('\r\n', '  '))
+    tweet_text = re.sub("\\s+", " ", tweet_text)
 
     return tweet.TweetEnvelope(
         local_date=local_date,
