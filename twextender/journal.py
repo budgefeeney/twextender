@@ -36,24 +36,25 @@ class JournalResponse:
     The response to a query on the journal. Note that max_id and last_access
     may be undefined if the result_type is NotFound
     """
-    def __init__(self, result_type, user, max_id, last_access):
+    def __init__(self, result_type, user, max_id, last_access, last_tweet_date_utc):
        self.result_type  = result_type
        self.user         = user
        self._max_id      = max_id
        self._last_access = last_access
+       self._last_tweet_date_utc = last_tweet_date_utc
 
     @classmethod
     def not_found(cls, user_name):
-        return JournalResponse(JournalResultType.NotFound, user_name, None, None)
+        return JournalResponse(JournalResultType.NotFound, user_name, None, None, None)
     @classmethod
     def found(cls, j_entry):
-        return JournalResponse(JournalResultType.Found, j_entry.user_name, j_entry.new_max_id, j_entry.date)
+        return JournalResponse(JournalResultType.Found, j_entry.user_name, j_entry.new_max_id, j_entry.date, j_entry.new_max_date)
     @classmethod
     def in_use(cls, j_entry):
-        return JournalResponse(JournalResultType.InUse, j_entry.user_name, j_entry.old_max_id, j_entry.date)
+        return JournalResponse(JournalResultType.InUse, j_entry.user_name, j_entry.old_max_id, j_entry.date, None)
     @classmethod
     def broken_journal(cls, user_name):
-        return JournalResponse(JournalResultType.BrokenJournal, user_name, None, None)
+        return JournalResponse(JournalResultType.BrokenJournal, user_name, None, None, None)
 
     @property
     def max_id(self):
@@ -72,6 +73,13 @@ class JournalResponse:
             raise ValueError ("Cannot access last_Access for user, journal is inaccessible")
 
         return self._last_access
+
+    @property
+    def last_tweet_date_utc(self):
+        if self.result_type is not JournalResultType.Found:
+            raise ValueError ("Cannot access last_tweet_date_utc for if user who was not found")
+
+        return self._last_tweet_date_utc
 
     def __str__(self):
         return self.result_type.name + ': [' + self.user + '] ' + str(self._max_id) + '@' + str(self._last_access)
