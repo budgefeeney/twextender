@@ -12,11 +12,25 @@ It can do two things:
 """
 from optparse import OptionParser
 import sys
+import os
 from pathlib import Path
 from twextender import journal
 from twextender import tweet
 from twextender import downloader
 from dateutil import parser as dateparser
+from datetime import datetime
+
+TweetFileExt = ".historic.tweets.txt"
+
+def strip_timezone(old_date_time):
+    return datetime(
+        old_date_time.year,
+        old_date_time.month,
+        old_date_time.day,
+        old_date_time.hour,
+        old_date_time.minute,
+        old_date_time.month
+    )
 
 def sanity_check(options, parser):
     """
@@ -39,7 +53,7 @@ def sanity_check(options, parser):
         if options.target_date is None:
             error = "A target date must be specified when processing a journal"
         try:
-            options.target_date = dateparser.parse(options.target_date)
+            options.target_date = strip_timezone(dateparser.parse(options.target_date))
         except (ValueError, OverflowError) as e:
             error = "Invalid date '" + options.target_date + "': " + str(e)
     else:
@@ -95,30 +109,49 @@ def process_journal (tweets_dir, input_journal, min_tweet_date):
     """
     jrnl = journal.Journal(input_journal)
     for screen_name in jrnl.journalled_users():
+        print (screen_name)
         resp = jrnl.try_start(screen_name)
         if resp.result_type is journal.JournalResultType.Found:
-            max_id, last_access_date = resp.max_id, resp.last_access
+            max_id, last_tweet_date = resp.max_id, strip_timezone(resp.last_tweet_date_utc)
+            print (" --> Last tweet " + str(max_id) + "@" + str(last_tweet_date))
         elif resp.result_type is journal.JournalResultType.InUse:
-            continue # being spidered elsewhere
+            print (" --> In-use, being spidered elsewhere?")
+            continue
         else:
             raise ValueError ("Unexpected result type " + str(resp))
 
-        if last_access_date < min_tweet_date:
-            continue
-
         # try:
-        tweets = downloader.tweets_for_user(screen_name, max_id=max_id, min_date=min_tweet_date)
-        jrnl.finish(
-            screen_name,
-            old_max_id=max_id,
-            new_max_id=tweets[-1].tweet_id,
-            new_max_date=tweets[-1].created_at
-        )
+        if last_tweet_date < min_tweet_date:
+            print (" --> Skipping as last tweet date " + str(last_tweet_date) + " predates the minimum " + str(min_tweet_date))
+            tweets = []
+        else:
+            print (" --> Downloading tweets")
+            tweets = downloader.tweets_for_user(screen_name, max_id=max_id, min_date=min_tweet_date)
+            print (" --> Downloaded %d tweets" % (len(tweets),))
 
-        print(str(tweets))
-        exit(0)
-        # except:
+            fname = tweets_dir + os.sep + screen_name + TweetFileExt
+            with open (fname, "w") as f:
+                f.writelines(str(t) + '\n' for t in tweets)
+            print (" --> Wrote tweets to file " + fname)
+
+        if len (tweets) > 0:
+            jrnl.finish(
+                screen_name,
+                old_max_id=max_id,
+                new_max_id=tweets[-1].tweet.tweet_id,
+                new_max_date=tweets[-1].utc_date
+            )
+        else:
+            jrnl.finish(
+                screen_name,
+                old_max_id=max_id,
+                new_max_id=max_id,
+                new_max_date=last_tweet_date
+            )
+
+        # except Exception as e:
         #     jrnl.abandon(screen_name, old_max_id=max_id)
+        #     print (" --> Error: " + str(e))
 
 
 
