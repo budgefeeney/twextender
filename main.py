@@ -120,38 +120,38 @@ def process_journal (tweets_dir, input_journal, min_tweet_date):
         else:
             raise ValueError ("Unexpected result type " + str(resp))
 
-        # try:
-        if last_tweet_date < min_tweet_date:
-            print (" --> Skipping as last tweet date " + str(last_tweet_date) + " predates the minimum " + str(min_tweet_date))
-            tweets = []
-        else:
-            print (" --> Downloading tweets")
-            tweets = downloader.tweets_for_user(screen_name, max_id=max_id, min_date=min_tweet_date)
-            print (" --> Downloaded %d tweets" % (len(tweets),))
+        try:
+            if last_tweet_date < min_tweet_date:
+                print (" --> Skipping as last tweet date " + str(last_tweet_date) + " predates the minimum " + str(min_tweet_date))
+                tweets = []
+            else:
+                print (" --> Downloading tweets")
+                tweets = downloader.tweets_for_user(screen_name, max_id=max_id, min_date=min_tweet_date)
+                print (" --> Downloaded %d tweets" % (len(tweets),))
 
-            fname = tweets_dir + os.sep + screen_name + TweetFileExt
-            with open (fname, "w") as f:
-                f.writelines(str(t) + '\n' for t in tweets)
-            print (" --> Wrote tweets to file " + fname)
+                fname = tweets_dir + os.sep + screen_name + TweetFileExt
+                with open (fname, "w") as f:
+                    f.writelines(str(t) + '\n' for t in tweets)
+                print (" --> Wrote tweets to file " + fname)
 
-        if len (tweets) > 0:
-            jrnl.finish(
-                screen_name,
-                old_max_id=max_id,
-                new_max_id=tweets[-1].tweet.tweet_id,
-                new_max_date=tweets[-1].utc_date
-            )
-        else:
-            jrnl.finish(
-                screen_name,
-                old_max_id=max_id,
-                new_max_id=max_id,
-                new_max_date=last_tweet_date
-            )
+            if len (tweets) > 0:
+                jrnl.finish(
+                    screen_name,
+                    old_max_id=max_id,
+                    new_max_id=tweets[-1].tweet.tweet_id,
+                    new_max_date=tweets[-1].utc_date
+                )
+            else:
+                jrnl.finish(
+                    screen_name,
+                    old_max_id=max_id,
+                    new_max_id=max_id,
+                    new_max_date=last_tweet_date
+                )
 
-        # except Exception as e:
-        #     jrnl.abandon(screen_name, old_max_id=max_id)
-        #     print (" --> Error: " + str(e))
+        except Exception as e:
+            jrnl.abandon(screen_name, old_max_id=max_id)
+            print (" --> Error: " + str(e))
 
 
 
