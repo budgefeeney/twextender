@@ -5,7 +5,7 @@ a given date
 import time
 import tweepy
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 import re
 from . import tweet
 
@@ -49,10 +49,14 @@ def tweets_for_user(screen_name, max_id, min_date):
     indicating if more tweets are available to download (true) or not (false)
     """
     result = []
+
     for status in limit_handled(tweepy.Cursor(twitter.user_timeline, screen_name=screen_name, exclude_replies=True, tweet_mode="extended", max_id=max_id).items()):
         result.append(status_to_tweet(status))
         if status.created_at < min_date:
             return result
+
+    if result[0].id == max_id:
+        del result[0]
     return result
 
 
@@ -60,6 +64,7 @@ def status_to_tweet(status):
     """
     Converts a tweepy.Status object to a tweet.Tweet object. The local_time field is not reliable.
     """
+    # TODO Figure out the timezone stuff
     offset_seconds = 0 if status.user.utc_offset is None else status.user.utc_offset
     local_date = status.created_at + timedelta(seconds=offset_seconds)
 
@@ -101,6 +106,8 @@ def status_to_tweet(status):
         retweet = None
         tweet_text = status.full_text
 
+    # Get rid of raw-newlines in text
+    tweet_text = tweet_text.translate(str.maketrans('\r\n', '  '))
 
     return tweet.TweetEnvelope(
         local_date=local_date,
@@ -117,8 +124,3 @@ def status_to_tweet(status):
 def strip_last_twitter_link(text):
     return re.sub(LastTwitterLink, "", text)
 
-
-def print_my_followers_screen_names():
-    for follower in limit_handled(tweepy.Cursor(twitter.followers).items()):
-        if follower.friends_count < 300:
-            print (follower.screen_name)
