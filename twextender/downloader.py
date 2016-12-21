@@ -30,7 +30,14 @@ def limit_handled(cursor):
         try:
             yield cursor.next()
         except tweepy.RateLimitError:
+            print (" *** Paused, rate-limit exceeded")
             time.sleep(15 * 60)
+        except tweepy.TweepError as e:
+            if e.response.status_code == 429:
+                print (" *** Paused, rate-limit exceeded")
+                time.sleep(15 * 60)
+            else:
+                raise e
 
 
 def tweets_for_user(screen_name, max_id, min_date):
