@@ -33,7 +33,7 @@ def limit_handled(cursor):
             print (" *** Paused, rate-limit exceeded")
             time.sleep(15 * 60)
         except tweepy.TweepError as e:
-            if e.response.status_code == 429:
+            if e.response.status_code == 429 or e.response.status_code == 420:
                 print (" *** Paused, rate-limit exceeded")
                 time.sleep(15 * 60)
             else:
