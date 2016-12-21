@@ -148,7 +148,6 @@ def process_journal (tweets_dir, input_journal, min_tweet_date):
                     new_max_id=max_id,
                     new_max_date=last_tweet_date
                 )
-
         except Exception as e:
             jrnl.abandon(screen_name, old_max_id=max_id)
             print (" --> Error: " + str(e))
