@@ -13,6 +13,7 @@ It can do two things:
 from optparse import OptionParser
 import sys
 import os
+import traceback
 from pathlib import Path
 from twextender import journal
 from twextender import tweet
@@ -151,6 +152,7 @@ def process_journal (tweets_dir, input_journal, min_tweet_date):
         except Exception as e:
             jrnl.abandon(screen_name, old_max_id=max_id)
             print (" --> Error: " + str(e))
+            traceback.print_exc()
 
 
 
