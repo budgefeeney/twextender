@@ -56,11 +56,25 @@ def tweets_for_user(screen_name, max_id, min_date):
     indicating if more tweets are available to download (true) or not (false)
     """
     result = []
+    attempts = 3
 
-    for status in limit_handled(tweepy.Cursor(twitter.user_timeline, screen_name=screen_name, exclude_replies=True, tweet_mode="extended", max_id=max_id).items()):
-        result.append(status_to_tweet(status))
-        if status.created_at < min_date:
-            return result
+    while attempts > 0:
+        attempts -= 1
+        try:
+            for status in limit_handled(tweepy.Cursor(twitter.user_timeline, screen_name=screen_name, exclude_replies=True, tweet_mode="extended", max_id=max_id).items()):
+                result.append(status_to_tweet(status))
+                if status.created_at < min_date:
+                    return result
+        except tweepy.RateLimitError:
+            print(" *** Paused, rate-limit exceeded")
+            time.sleep(15 * 60)
+        except tweepy.TweepError as e:
+            if e.response.status_code == 429 or e.response.status_code == 420:
+                print(" *** Paused, rate-limit exceeded")
+                time.sleep(15 * 60)
+            else:
+                raise e
+
 
     if len(result) > 0 and result[0].tweet.tweet_id == max_id:
         del result[0]
